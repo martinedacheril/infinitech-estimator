@@ -1,22 +1,46 @@
-from fastapi import FastAPI
-from .services import get_price_estimate
-from .models import RepairEstimate
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from .services import get_price_estimate, save_estimate
+from .database import get_db
 
 app = FastAPI()
 
-@app.get("/estimate/{issue}")
-async def get_estimate(issue: str, complexity: str = "medium"):
+# Pydantic model to represent the input data from the user
+class RepairEstimateRequest(BaseModel):
+    issue: str
+    complexity: str = "medium"  # default value
+    location: str = "default"  # default value
+    device: str = "phone"  # default value
+
+# Pydantic model for the response
+class RepairEstimate(BaseModel):
+    issue: str
+    complexity: str
+    location: str
+    device: str
+    price_estimate: float
+
+@app.post("/estimate/")
+async def create_estimate(request: RepairEstimateRequest, db: Session = Depends(get_db)):
     """
-    Endpoint to get an estimate for a given issue.
+    Endpoint to get an estimate for a repair job and save the estimate to the database.
     
     Parameters:
-    - issue: The issue the user is facing (e.g., 'cracked screen')
-    - complexity: The complexity of the repair (e.g., 'low', 'medium', 'high')
+    - request: The body of the request containing issue, complexity, location, and device
     
     Returns:
-    - Estimate based on predefined values
+    - Repair estimate based on the data
     """
-    price = await get_price_estimate(issue, complexity)
+    price = await get_price_estimate(request.issue, request.complexity, request.location, request.device)
     if price > 0:
-        return RepairEstimate(issue=issue, complexity=complexity, price_estimate=price)
-    return {"error": "Issue or complexity not found"}
+        # Save the estimate to the database
+        saved_estimate = await save_estimate(db, request.issue, request.complexity, request.location, request.device, price)
+        return RepairEstimate(
+            issue=saved_estimate.issue,
+            complexity=saved_estimate.complexity,
+            location=saved_estimate.location,
+            device=saved_estimate.device,
+            price_estimate=saved_estimate.price_estimate
+        )
+    raise HTTPException(status_code=400, detail="Invalid issue, complexity, or device.")
