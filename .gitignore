@@ -1,0 +1,28 @@
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite
+
+# Virtual environment
+venv/
+.env/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+
+# IDE/Editor specific files
+.idea/
+.vscode/
+
+# macOS specific
+.DS_Store
+
+# Logs
+*.log
+
+# System-specific
+Thumbs.db
